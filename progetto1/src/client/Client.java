@@ -26,27 +26,41 @@ class ChatData {
 
 	private Map<String, Vector<String>> messages;
 	private Map<InetAddress, String> IPproject;
-	private UDPReceiver thread;
+	private MulticastSocket mcSocket;
+	private Thread thread;
 
 	public ChatData() {
+		
+		int mcPort = 9991;
 
 		this.IPproject = new HashMap<InetAddress, String>();
 		this.messages = new ConcurrentHashMap<String, Vector<String>>();
-		thread = new UDPReceiver(IPproject, messages);
+		try {
+			this.mcSocket = new MulticastSocket(mcPort);
+		} catch (IOException e) {
+			System.out.println("I/O execption inizializing multicast socket ");
+			e.printStackTrace();
+		};
+		thread = new Thread(new UDPReceiver(IPproject, messages, mcSocket));
 		thread.run();
 	}
 
 	public void interrupt() {
-		thread.interrupt();
+		System.out.println("Interruzione UDP receiver thread");
+
+		mcSocket.close();
 	}
 
 	public Iterator<String> getMessages(String projectName) {
 		return messages.get(projectName).iterator();
 	}
 	
+	
+	@SuppressWarnings("deprecation")
 	public boolean addChat(String projectName, InetAddress address) {
 		try {
-		thread.addChat(projectName, address);
+			mcSocket.joinGroup(address);
+			this.IPproject.put(address, projectName);
 		return true;
 	} catch (IOException e) {
 		System.out.println("Error in joining the chat group");
@@ -55,10 +69,17 @@ class ChatData {
 		return false;
 	}
 	
+	@SuppressWarnings("deprecation")
 	public boolean removeChat(String projectName) {
 		try {
-		thread.removeChat(projectName);
+			Iterator<Map.Entry<InetAddress, String>> i = IPproject.entrySet().iterator();
+			while (i.hasNext()) {
+				Map.Entry<InetAddress, String> entry = i.next();
+				if (entry.getValue().equals(projectName))
+					mcSocket.leaveGroup(entry.getKey());
+				this.IPproject.remove(entry.getKey());
 		return true;
+			}
 		} catch (IOException e) {
 			System.out.println("Error in leaving the chat group");
 			
@@ -66,29 +87,29 @@ class ChatData {
 		return false;
 	}
 	
+	
 }
-
-	@SuppressWarnings("deprecation")
 
 	class UDPReceiver implements Runnable {
 		// InetAddress address;
-		MulticastSocket mcSocket;
+		
 		Map<InetAddress, String> IPproject;
 		Map<String, Vector<String>> messages;
+		MulticastSocket mcSocket;
 
-		public UDPReceiver(Map<InetAddress, String> IPproject, Map<String, Vector<String>> messages) {
+		public UDPReceiver(Map<InetAddress, String> IPproject, Map<String, Vector<String>> messages, MulticastSocket socket) {
+			this.mcSocket = socket;
 			this.IPproject = IPproject;
 			this.messages = messages;
-			this.mcSocket = null;
+			
 		}
 
 		@Override
 		public void run() {
 			System.out.println("thread partito");
-			int mcPort = 9991;
-			MulticastSocket mcSocket;
+		
 			try {
-				mcSocket = new MulticastSocket(mcPort);
+				
 
 				System.out.println("Multicast Receiver running at:" + mcSocket.getLocalSocketAddress());
 
@@ -110,33 +131,7 @@ class ChatData {
 			}
 		}
 
-		public void interrupt() {
-			System.out.println("Interruzione UDP receiver thread");
-
-			mcSocket.close();
-
-		}
-
-		public void addChat(String projectName, InetAddress address) throws IOException {
-			
-				mcSocket.joinGroup(address);
-				this.IPproject.put(address, projectName);
-		
-
-		}
-
-		public void removeChat(String projectName) throws IOException {
-
-				Iterator<Map.Entry<InetAddress, String>> i = IPproject.entrySet().iterator();
-				while (i.hasNext()) {
-					Map.Entry<InetAddress, String> entry = i.next();
-					if (entry.getValue().equals(projectName))
-						mcSocket.leaveGroup(entry.getKey());
-					this.IPproject.remove(entry.getKey());
-				}
-			
-
-		}
+	
 
 	}
 
