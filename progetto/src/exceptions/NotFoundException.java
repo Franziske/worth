@@ -3,13 +3,13 @@ package exceptions;
 public class NotFoundException extends Exception {
 	private static final long serialVersionUID = 1L;
 
-    public NotFoundException() {
+	public NotFoundException() {
 
-        super();
-    }
+		super();
+	}
 
-    public NotFoundException(String s) {
+	public NotFoundException(String s) {
 
-        super(s);
-    }
+		super(s);
+	}
 }

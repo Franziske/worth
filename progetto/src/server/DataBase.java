@@ -6,11 +6,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
 import java.util.TreeSet;
-import java.util.stream.Stream;
 
 import com.fasterxml.jackson.core.exc.StreamReadException;
 import com.fasterxml.jackson.core.exc.StreamWriteException;
@@ -18,14 +15,13 @@ import com.fasterxml.jackson.databind.DatabindException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import exceptions.MissingFolderException;
-import exceptions.SuchDBAlreadyExistsException;
 
 public class DataBase {
 
 	private String DBName;
 	private final ObjectMapper objectMapper;
 	private Path DBpath;
-	// private Set<Path> dirs;
+	
 
 	public DataBase(String directoryName) throws IOException {
 
@@ -35,9 +31,9 @@ public class DataBase {
 		try {
 			this.DBName = directoryName;
 
-			if (Files.notExists(path)) {
-				Files.createDirectories(path);
-				System.out.println("Directory DB created correctly in" + path.toAbsolutePath().toString());
+			if (Files.notExists(DBpath)) {
+				Files.createDirectories(DBpath);
+				System.out.println("Directory DB created correctly in" + DBpath.toAbsolutePath().toString());
 
 				Path pathproj = Paths.get("./" + directoryName + "/Projects/");
 				Files.createDirectories(pathproj);
@@ -52,7 +48,7 @@ public class DataBase {
 				System.out.println("Users directory created correctly in DB");
 
 			} else
-				System.out.println("Directory DB already exists : " + path.toAbsolutePath().toString());
+				System.out.println("Directory DB already exists : " + DBpath.toAbsolutePath().toString());
 			Path pathproj = Paths.get("./" + directoryName + "/Projects/");
 			Files.createDirectories(pathproj);
 			System.out.println("Project directory correctly inizialized in DB");
@@ -75,7 +71,7 @@ public class DataBase {
 	}
 
 	public List<Project> getProjects() throws StreamReadException, DatabindException, IOException {
-		ArrayList<Project> prgs = new ArrayList<Project>();
+		ArrayList<Project> prgs = new ArrayList<>();
 		// ArrayList<Card> crds = new ArrayList<Card>();
 
 		// cartella progetti
@@ -97,13 +93,13 @@ public class DataBase {
 
 	/*
 	 * for(File p : currentPrgsFolder) {
-	 * 
+	 *
 	 * File[] cardInP = p.listFiles(); for(File c : cardInP) {
 	 * crds.add(objectMapper.readValue(c, Card.class)); }
 	 */
 
 	public List<User> getUsers() throws StreamReadException, DatabindException, IOException {
-		ArrayList<User> users = new ArrayList<User>();
+		ArrayList<User> users = new ArrayList<>();
 
 		File usersFolder = new File("./" + this.DBName + "/Users/");
 
@@ -124,7 +120,7 @@ public class DataBase {
 
 		if (Files.notExists(pathp)) {
 			Files.createDirectories(pathp);
-			TreeSet<Path> dirs = new TreeSet<Path>(Files.list(pathp).toList());
+			TreeSet<Path> dirs = new TreeSet<>(Files.list(pathp).toList());
 
 			File filep = new File("./" + this.DBName + "/Projects/" + p.getName() + "File.json");
 
@@ -135,7 +131,7 @@ public class DataBase {
 			System.out.println(dirs);
 			System.out.println(objectMapper.writeValueAsString(p) + "added in Projects");
 		} else {
-			TreeSet<Path> dirs = new TreeSet<Path>(Files.list(pathp).toList());
+			TreeSet<Path> dirs = new TreeSet<>(Files.list(pathp).toList());
 			System.out.println(dirs);
 			System.out.println(p.getName() + "already exists in Projects");
 		}
@@ -203,20 +199,20 @@ public class DataBase {
 	/*
 	 * try { Path path = Paths.get("./" + this.DBName + "/Users/" + u.getnikName() +
 	 * ".json");
-	 * 
+	 *
 	 * if(Files.notExists(path)) {
-	 * 
+	 *
 	 * Files.createFile(path);
-	 * 
+	 *
 	 * objectMapper.writeValue(, u);
-	 * 
+	 *
 	 * System.out.println(objectMapper.writeValueAsString(u) +
 	 * " added to WORTH Users"); }
-	 * 
+	 *
 	 * else System.out.println(u.getnikName() + " already exists WORTH Users");
-	 * 
+	 *
 	 * } catch (IOException e){
-	 * 
+	 *
 	 * e.printStackTrace(); }
 	 */
 
@@ -250,11 +246,18 @@ public class DataBase {
 			objectMapper.writeValue(filep, p);
 		} catch (IOException e) {
 
+			///
 			e.printStackTrace();
 		}
 	}
-
+	
+	/**
+	 * 
+	 * @param u
+	 */
 	public void refreshUser(User u) {
+		 //TODO ciao provva
+		/// controlla null nei parametri
 
 		File fileu = new File("./" + this.DBName + "/Users/" + "/" + u.getnikName() + ".json");
 
@@ -267,15 +270,6 @@ public class DataBase {
 		}
 	}
 
-	private void checkFolder(String dir) throws MissingFolderException {
-		if (Files.notExists(Paths.get(dir)))
-			throw new MissingFolderException();
-
-	}
 }
 
-/*
- * dirs = new TreeSet<Path>(); } else { dirs = new
- * TreeSet<Path>(Files.list(tempDirectory).toList()); }
- * System.out.println(dirs);
- */
+

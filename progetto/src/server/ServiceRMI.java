@@ -18,8 +18,8 @@ public interface ServiceRMI extends Remote {
 
 	// inviare notifica
 	public void sendNotification(String user, UserState us) throws RemoteException;
-	
-	//invia riferimenti per la chat
-	
+
+	// invia riferimenti per la chat
+
 	public void sendNewChatAddress(String dest, String projectName, InetAddress address) throws RemoteException;
 }

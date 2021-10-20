@@ -1,18 +1,17 @@
 package exceptions;
 
 public class DuplicateException extends Exception {
-	
+
 	private static final long serialVersionUID = 1L;
 
-    public DuplicateException() {
+	public DuplicateException() {
 
-        super();
-    }
+		super();
+	}
 
-    public DuplicateException(String s) {
+	public DuplicateException(String s) {
 
-        super(s);
-    }
-
+		super(s);
+	}
 
 }

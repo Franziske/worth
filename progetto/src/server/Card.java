@@ -1,6 +1,7 @@
 package server;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Card {
 
@@ -12,7 +13,7 @@ public class Card {
 	public Card(String n, String d) {
 		this.taskName = n;
 		this.description = d;
-		this.history = new ArrayList<CardState>();
+		this.history = new ArrayList<>();
 		history.add(CardState.TODO);
 		this.currentState = CardState.TODO;
 
@@ -21,7 +22,7 @@ public class Card {
 	public Card(String n) {
 		this.taskName = n;
 		this.description = "";
-		this.history = new ArrayList<CardState>();
+		this.history = new ArrayList<>();
 		history.add(CardState.TODO);
 		this.currentState = CardState.TODO;
 	}
@@ -30,7 +31,7 @@ public class Card {
 	public Card() {
 		this.taskName = null;
 		this.description = null;
-		this.history = new ArrayList<CardState>();
+		this.history = new ArrayList<>();
 
 		this.currentState = null;
 	}

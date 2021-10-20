@@ -1,16 +1,16 @@
 package exceptions;
 
-public class MissingFolderException extends Exception{
+public class MissingFolderException extends Exception {
 	private static final long serialVersionUID = 1L;
 
-    public MissingFolderException() {
+	public MissingFolderException() {
 
-        super();
-    }
+		super();
+	}
 
-    public MissingFolderException(String s) {
+	public MissingFolderException(String s) {
 
-        super(s);
-    }
+		super(s);
+	}
 
 }

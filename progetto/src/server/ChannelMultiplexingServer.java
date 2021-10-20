@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -31,7 +32,7 @@ public class ChannelMultiplexingServer {
 	private int RMIport = 8888;
 	private int TCPport = 7777;
 	private List<InetAddress> availableChatAddress;
-	private HashMap<String,InetAddress> projectChatMap;
+	private HashMap<String, InetAddress> projectChatMap;
 
 	public ChannelMultiplexingServer() throws IOException {
 
@@ -43,17 +44,17 @@ public class ChannelMultiplexingServer {
 		this.selector = Selector.open();
 		this.socketChannel.register(selector, SelectionKey.OP_ACCEPT);
 		this.selectedKeys = null;
-		this.availableChatAddress = new ArrayList<InetAddress>();
+		this.availableChatAddress = new ArrayList<>();
 		for (int i = 1; i < 255; i++) {
-			availableChatAddress.add(InetAddress.getByName("224.0.0"+i));
-			projectChatMap = new HashMap<String,InetAddress>();
-			
+			availableChatAddress.add(InetAddress.getByName("224.0.0" + i));
+			projectChatMap = new HashMap<>();
+
 		}
-		//System.out.println(availableChatAddress);
+		// System.out.println(availableChatAddress);
 		// this.keysIterator = selectedKeys.iterator();
 
 		// Register con RMI
-		
+
 		wServer = new Worth();
 
 		ServiceRMI stub = (ServiceRMI) UnicastRemoteObject.exportObject(wServer, 9999);
@@ -63,8 +64,6 @@ public class ChannelMultiplexingServer {
 
 		r.rebind("WORTH-SERVER", stub);
 	}
-	
-	
 
 	public void start() throws IOException {
 
@@ -77,7 +76,7 @@ public class ChannelMultiplexingServer {
 			this.keysIterator = selectedKeys.iterator();
 
 			while (keysIterator.hasNext()) {
-				key = (SelectionKey) keysIterator.next();
+				key = keysIterator.next();
 				keysIterator.remove();
 				if (key.isAcceptable()) {
 					accept();
@@ -115,7 +114,6 @@ public class ChannelMultiplexingServer {
 		 * sc.write(bb); sc.close(); } it.remove();
 		 */
 
-		// server close?
 
 	}
 
@@ -128,7 +126,7 @@ public class ChannelMultiplexingServer {
 		String attach = (String) key.attachment();
 		String command = new String();
 		command = "";
-		ArrayList<String> parameters = new ArrayList<String>();
+		ArrayList<String> parameters = new ArrayList<>();
 
 		StringTokenizer st = new StringTokenizer(attach);
 		command = st.nextToken();
@@ -143,17 +141,16 @@ public class ChannelMultiplexingServer {
 
 		case "login":
 			reply = wServer.login(parameters.get(0), parameters.get(1));
-			 ArrayList<String> projects = wServer.listMyProjects(parameters.get(0));
-			 for(String p : projects) {
-				 if(projectChatMap.get(p) == null) {
-					 InetAddress a = availableChatAddress.get(0);
-					 projectChatMap.put(parameters.get(0), a);
-					 wServer.sendNewChatAddress(parameters.get(0), p,a);
-				 }
-				 else 
-					 wServer.sendNewChatAddress(parameters.get(0), p, projectChatMap.get(p));
-				 
-			 }
+			ArrayList<String> projects = wServer.listMyProjects(parameters.get(0));
+			for (String p : projects) {
+				if (projectChatMap.get(p) == null) {
+					InetAddress a = availableChatAddress.get(0);
+					projectChatMap.put(parameters.get(0), a);
+					wServer.sendNewChatAddress(parameters.get(0), p, a);
+				} else
+					wServer.sendNewChatAddress(parameters.get(0), p, projectChatMap.get(p));
+
+			}
 
 			break;
 
@@ -176,18 +173,19 @@ public class ChannelMultiplexingServer {
 		case "create_project":
 			try {
 				InetAddress chatIP = availableChatAddress.remove(0);
-			reply = wServer.createProject(parameters.get(0), parameters.get(1), chatIP);
-			if(reply.contains("successfully")) this.projectChatMap.put(parameters.get(1), chatIP);
-			} catch( IndexOutOfBoundsException e) {
-			reply = "no more chat address available";
+				reply = wServer.createProject(parameters.get(0), parameters.get(1), chatIP);
+				if (reply.contains("successfully"))
+					this.projectChatMap.put(parameters.get(1), chatIP);
+			} catch (IndexOutOfBoundsException e) {
+				reply = "no more chat address available";
 			}
-			
+
 			break;
 
 		case "add_member":
 			InetAddress chatIP = projectChatMap.get(parameters.get(1));
 			reply = wServer.addMember(parameters.get(0), parameters.get(1), parameters.get(2), chatIP);
-		
+
 			break;
 
 		case "show_members":
@@ -238,11 +236,12 @@ public class ChannelMultiplexingServer {
 			break;
 		case "cancel_project":
 			reply = wServer.cancelProject(parameters.get(0), parameters.get(1));
-			if(reply.contains("deleted")) {
-				
+			if (reply.contains("deleted")) {
+
 				InetAddress a = projectChatMap.remove(parameters.get(1));
-				if(!(a == null)) availableChatAddress.add(a);
-				
+				if (!(a == null))
+					availableChatAddress.add(a);
+
 				// non dovrebbe essere nulla l'ho cancellato quindi esisteva
 			}
 			break;
@@ -260,31 +259,34 @@ public class ChannelMultiplexingServer {
 		}
 		}
 
-		int bytesToWrite = scClient.write(ByteBuffer.wrap(reply.getBytes()));
+		try {
+			int bytesToWrite = scClient.write(ByteBuffer.wrap(reply.getBytes()));
+			if (bytesToWrite == -1) {
+				key.cancel();
+				scClient.close();
 
-		// int bytesToWrite= scClient.write(buffer);
-
-		if (bytesToWrite == -1) {
-			key.cancel();
-			scClient.close();
-
-			// connection interrupted TOGLI ONLINE
-		} else {
-			if (buffer.position() == BUFF_CAPACITY) {
-
-				buffer.flip();
-				// attach = attach + new String(buffer.array(), "ASCII");
-				key.interestOps(SelectionKey.OP_WRITE);
-				// CLEAR?
+				// connection interrupted TOGLI ONLINE
 			} else {
-				key.interestOps(SelectionKey.OP_READ);
-				buffer.clear();
-				key.attach(null);
-				// attach = attach + new String(buffer.array(), "ASCII");
+				if (buffer.position() == BUFF_CAPACITY) {
+
+					buffer.flip();
+					// attach = attach + new String(buffer.array(), "ASCII");
+					key.interestOps(SelectionKey.OP_WRITE);
+					// CLEAR?
+				} else {
+					key.interestOps(SelectionKey.OP_READ);
+					buffer.clear();
+					key.attach(null);
+					// attach = attach + new String(buffer.array(), "ASCII");
+				}
+
 			}
 
+		} catch (ClosedChannelException e) {
+			// TODO Auto-generated catch block
+			System.err.println("client disconnected");
 		}
-
+		
 	}
 
 	private void read() throws IOException {
@@ -295,11 +297,6 @@ public class ChannelMultiplexingServer {
 		SocketChannel scClient = (SocketChannel) key.channel();
 		String attach = (String) key.attachment();
 		StringBuffer sb = new StringBuffer();
-
-		// System.out.println(sb);
-		// String data;
-		// if(attach == null ) data = "";
-		// else data = (String) attach;
 
 		buffer.clear();
 
@@ -312,17 +309,19 @@ public class ChannelMultiplexingServer {
 
 		// StringBuilder sb = new StringBuilder();
 
-		while (startPosition < position) {
+		/*while (startPosition < position) {
 			sb.append((char) buffer.get());
 			startPosition++;
-		}
+		}*/
+		
+		sb.append(StandardCharsets.US_ASCII.decode(buffer).toString());
 
 		attach = sb.toString();
 
 		System.out.println(bytesRead + "\n");
 
 		if (bytesRead == -1 && key.attachment() == null) {
-			// if(attach == null || attach == "") { //NULL
+			
 			key.cancel();
 			scClient.close();
 
@@ -333,11 +332,6 @@ public class ChannelMultiplexingServer {
 			 */
 		} else {
 			if (position < BUFF_CAPACITY) {
-
-				/*
-				 * if(attach!= null) attach = attach.concat(new String(buffer.array(),
-				 * "ASCII")); else attach = new String(buffer.array(), "ASCII");
-				 */
 
 				key.attach(attach);
 				key.interestOps(SelectionKey.OP_WRITE);

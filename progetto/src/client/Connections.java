@@ -5,11 +5,8 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.SocketException;
-import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
-import java.nio.charset.StandardCharsets;
 import java.rmi.NotBoundException;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
@@ -17,15 +14,14 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 
 import server.ServiceRMI;
-import server.Worth;
 
 public class Connections {
 
 	// String nik;
 	int RMIport;
 	int TCPport;
-	private InetSocketAddress addressTCP, addressRMI;
-	private static SocketChannel scClientTCP, scClientRMI;
+	private InetSocketAddress addressTCP;
+	private static SocketChannel scClientTCP;
 	private ByteBuffer buffer;
 	private DatagramSocket UDPSocket;
 
@@ -35,7 +31,7 @@ public class Connections {
 		this.TCPport = 7777;
 		this.addressTCP = new InetSocketAddress("localhost", TCPport);
 		this.buffer = ByteBuffer.allocate(2048);
-		
+
 		try {
 			scClientTCP = SocketChannel.open();
 			scClientTCP.connect(addressTCP);
@@ -57,13 +53,15 @@ public class Connections {
 			// if (registration) this.nik = nik;
 
 			return registration;
-
 		} catch (RemoteException e) {
-
 			return false;
 		} catch (NotBoundException e) {
 			return false;
 		}
+	}
+
+	public void closeUDP() {
+		UDPSocket.close();
 	}
 
 	public String sendRequest(String req) {
@@ -95,16 +93,14 @@ public class Connections {
 
 	public void sendChatMsg(String msg, InetAddress chatAddress) throws IOException {
 		System.out.println("tento di inviare " + msg);
-		
-		//InetAddress mcIPAddress = InetAddress.getByName(chatAddress);
+
+		// InetAddress mcIPAddress = InetAddress.getByName(chatAddress);
 		byte[] buffer = msg.getBytes();
-	    DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-	    packet.setAddress(chatAddress);
-	    packet.setPort(9991);
-	    UDPSocket.send(packet);
-	    System.out.println(msg + " inviato.");
-    	UDPSocket.close();
-		
+		DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+		UDPSocket.connect(chatAddress, 9991);
+		UDPSocket.send(packet);
+		UDPSocket.disconnect();
+		System.out.println(msg + " inviato.");
 	}
 
 }

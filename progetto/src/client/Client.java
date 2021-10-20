@@ -4,8 +4,6 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
-import java.net.NetworkInterface;
-import java.net.UnknownHostException;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
@@ -13,99 +11,161 @@ import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Random;
 import java.util.Scanner;
 import java.util.StringTokenizer;
+import java.util.Vector;
+import java.util.concurrent.ConcurrentHashMap;
 
-import server.ServiceRMI;
 import server.UserState;
 
 class ChatData {
-	InetAddress address;
-	Thread thread;
-	public ChatData(InetAddress address) {
-		this.address = address;
-		thread = new Thread(new UDPReceiver(address));
-		thread.start();
+
+	private Map<String, Vector<String>> messages;
+	private Map<InetAddress, String> IPproject;
+	private UDPReceiver thread;
+
+	public ChatData() {
+
+		this.IPproject = new HashMap<InetAddress, String>();
+		this.messages = new ConcurrentHashMap<String, Vector<String>>();
+		thread = new UDPReceiver(IPproject, messages);
+		thread.run();
+	}
+
+	public void interrupt() {
+		thread.interrupt();
+	}
+
+	public Iterator<String> getMessages(String projectName) {
+		return messages.get(projectName).iterator();
 	}
 	
-	public InetAddress getAdress() {
-		return this.address;
+	public boolean addChat(String projectName, InetAddress address) {
+		try {
+		thread.addChat(projectName, address);
+		return true;
+	} catch (IOException e) {
+		System.out.println("Error in joining the chat group");
+		
 	}
+		return false;
+	}
+	
+	public boolean removeChat(String projectName) {
+		try {
+		thread.removeChat(projectName);
+		return true;
+		} catch (IOException e) {
+			System.out.println("Error in leaving the chat group");
+			
+		}
+		return false;
+	}
+	
 }
 
-class UDPReceiver implements Runnable {
-	InetAddress address;
-	
-	public UDPReceiver(InetAddress addr) {
-		this.address = addr;
-	}
-	
-	@Override
-	public void run() {
-		System.out.println("trhead partito");
-	    int mcPort = 9991;
-	    MulticastSocket mcSocket = null;
-	   /* try {
-			mcIPAddress = InetAddress.getByName(address);
-		} catch (UnknownHostException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}*/
-	    
-	    while(true) {
-	    try {
-			mcSocket = new MulticastSocket(mcPort);
-			System.out.println("Multicast Receiver running at:"
-					+ mcSocket.getLocalSocketAddress());
-			mcSocket.joinGroup(address);
-			
-			DatagramPacket packet = new DatagramPacket(new byte[1024], 1024);
-			
-			System.out.println("Waiting for a  multicast message...");
-			mcSocket.receive(packet);
-			String msg = new String(packet.getData(), packet.getOffset(),
-					packet.getLength());
-			System.out.println("[Multicast  Receiver] Received:" + msg);
-			
-			mcSocket.leaveGroup(address);
-			mcSocket.close();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+	@SuppressWarnings("deprecation")
+
+	class UDPReceiver implements Runnable {
+		// InetAddress address;
+		MulticastSocket mcSocket;
+		Map<InetAddress, String> IPproject;
+		Map<String, Vector<String>> messages;
+
+		public UDPReceiver(Map<InetAddress, String> IPproject, Map<String, Vector<String>> messages) {
+			this.IPproject = IPproject;
+			this.messages = messages;
+			this.mcSocket = null;
 		}
-	    }
+
+		@Override
+		public void run() {
+			System.out.println("thread partito");
+			int mcPort = 9991;
+			MulticastSocket mcSocket;
+			try {
+				mcSocket = new MulticastSocket(mcPort);
+
+				System.out.println("Multicast Receiver running at:" + mcSocket.getLocalSocketAddress());
+
+				while (true) {
+					// Iterator i = IPproject.keySet().iterator();
+					DatagramPacket packet = new DatagramPacket(new byte[1024], 1024);
+					System.out.println("Waiting for a  multicast message...");
+					mcSocket.receive(packet);
+
+					String projectSender = IPproject.get(packet.getAddress()); // controlla null
+					String msg = new String(packet.getData(), packet.getOffset(), packet.getLength());
+					messages.get(projectSender).add(msg);
+					System.out.println("messaggio nel gruppo : " + projectSender);
+					System.out.println("# messaggi " + messages.size());
+				}
+			} catch (IOException e) {
+				/////////////////////
+				e.printStackTrace();
+			}
+		}
+
+		public void interrupt() {
+			System.out.println("Interruzione UDP receiver thread");
+
+			mcSocket.close();
+
+		}
+
+		public void addChat(String projectName, InetAddress address) throws IOException {
+			
+				mcSocket.joinGroup(address);
+				this.IPproject.put(address, projectName);
+		
+
+		}
+
+		public void removeChat(String projectName) throws IOException {
+
+				Iterator<Map.Entry<InetAddress, String>> i = IPproject.entrySet().iterator();
+				while (i.hasNext()) {
+					Map.Entry<InetAddress, String> entry = i.next();
+					if (entry.getValue().equals(projectName))
+						mcSocket.leaveGroup(entry.getKey());
+					this.IPproject.remove(entry.getKey());
+				}
+			
+
+		}
+
 	}
-	
-}
 
 public class Client implements ClientInterfaceRMI {
 
 	private String nickName; // username dell'utente loggato nel client
 	private UserState clientState;
-	private Map<String, Integer> functionParams;// flag settato a false di default, viene impostato a true quando
-												// l'utente effettua il login
+	private Map<String, Integer> functionParams;// flag settato a false di default, viene impostato a true quando											// l'utente effettua il login
 	private Map<String, UserState> stateOfUsers;// mappa nickname-stato
-	private Map<String, ChatData> chatDatas;
-	
+	private ChatData chatData;
 	private Scanner scanner;
+	private Map<String,InetAddress> projectIP;
 	// private StringTokenizer tokenizer;
 	private Connections connections; // o lo creo dopo???
 	private int RMIport = 8888;
+
+	
 
 	public Client() {
 
 		this.nickName = null;
 		this.clientState = UserState.OFFLINE;
-		this.stateOfUsers = new HashMap<String, UserState>();
-		this.chatDatas = new HashMap<String,ChatData>();
+		this.stateOfUsers = new HashMap<>();
+		this.chatData = new ChatData();
 		this.scanner = new Scanner(System.in);
 		// this.tokenizer = new StringTokenizer(null);
 		this.connections = new Connections();
-		this.functionParams = new HashMap<String, Integer>();
+		this.functionParams = new HashMap<>();
+		this.projectIP = new HashMap<String,InetAddress>();
 		functionParams.put("register", 2);
 		functionParams.put("login", 2);
 		functionParams.put("list_users", 0);
@@ -124,6 +184,7 @@ public class Client implements ClientInterfaceRMI {
 		functionParams.put("read_chat", 1);
 		functionParams.put("send_chat_message", 2);
 		functionParams.put("logout", 0);
+		functionParams.put("close", 0);
 		functionParams.put("HELP", 0);
 
 	}
@@ -146,7 +207,7 @@ public class Client implements ClientInterfaceRMI {
 
 		return true;
 	}
-	
+
 	@Override
 	public String getnickName() {
 		return this.nickName;
@@ -154,7 +215,7 @@ public class Client implements ClientInterfaceRMI {
 
 	private List<String> getOnlineUsers() {
 
-		ArrayList<String> onlineUsers = new ArrayList<String>();
+		ArrayList<String> onlineUsers = new ArrayList<>();
 
 		for (var entry : stateOfUsers.entrySet()) {
 
@@ -165,23 +226,12 @@ public class Client implements ClientInterfaceRMI {
 
 	}
 
-	// switch(function) {
-
-	/*
-	 * case("login") : if(clientState.equals(UserState.ONLINE)) {
-	 * System.out.println("An user is already logged in"); return false; }
-	 * 
-	 * } }
-	 */
-
 	public void start() throws RemoteException, NotBoundException {
-
-		int p = (int) ((Math.random() * (65636 - 1024)) + 1024);
 
 		Registry r = LocateRegistry.getRegistry(RMIport);
 		// creo stub di oggetto remoto
 		ServiceRMI stubS = (ServiceRMI) r.lookup("WORTH-SERVER");
-		ClientInterfaceRMI stubC = (ClientInterfaceRMI) UnicastRemoteObject.exportObject(this, p);
+		ClientInterfaceRMI stubC = (ClientInterfaceRMI) UnicastRemoteObject.exportObject(this, 0);
 
 		boolean done = false;
 
@@ -192,7 +242,7 @@ public class Client implements ClientInterfaceRMI {
 
 			String toProcess = scanner.nextLine();
 
-			ArrayList<String> parameters = new ArrayList<String>();
+			ArrayList<String> parameters = new ArrayList<>();
 			String command = new String();
 			StringTokenizer st = new StringTokenizer(toProcess);
 
@@ -238,31 +288,34 @@ public class Client implements ClientInterfaceRMI {
 						request = request + " " + s;
 
 					// System.out.println(request);
-
+					// this.nickName == null
 					if (clientState.equals(UserState.OFFLINE)) {
 						this.nickName = parameters.get(0);
 						stubS.registerForCallback(stubC);
 						response = connections.sendRequest(request);
 						if (response.contains("Successfully logged in")) {
 							this.clientState = UserState.ONLINE;
-							//this.nickName = parameters.get(0);
-							
+							// this.nickName = parameters.get(0);
 
 							String allUsers = connections.sendRequest("list_users");
 							// String name = new String();
 
 							allUsers = allUsers.replace("[", "").replace("]", "");
-
-							// String listString = allUsers.substring(1, allUsers.length() - 2); // chop off
-							// brackets
 							StringTokenizer t = new StringTokenizer(allUsers, ",");
 
 							while (t.hasMoreTokens())
 								stateOfUsers.put(t.nextToken().trim(), UserState.OFFLINE);
 							stateOfUsers.put(nickName, UserState.ONLINE);
 						}
+						String onlineUsers = connections.sendRequest("list_online_users");
+						// String name = new String();
 
-						//this.nickName = null;
+						onlineUsers = onlineUsers.replace("[", "").replace("]", "");
+						StringTokenizer t = new StringTokenizer(onlineUsers, ",");
+
+						while (t.hasMoreTokens())
+							stateOfUsers.put(t.nextToken().trim(), UserState.ONLINE);
+						// this.nickName = null;
 						System.out.println(response);
 					} else
 						System.out.println("Already logged in");
@@ -330,8 +383,6 @@ public class Client implements ClientInterfaceRMI {
 
 				case ("get_card_history"):
 
-				case ("read_chat"):
-
 				case ("logout"):
 
 					if (clientState.equals(UserState.ONLINE)) {
@@ -346,35 +397,57 @@ public class Client implements ClientInterfaceRMI {
 						response = connections.sendRequest(request);
 
 						System.out.println(response);
+
 					} else
-						System.out.println("You need to logged in before this request");
+						System.out.println("You need to be logged in before this request");
 
 					break;
 				case ("send_chat_message"):
-					
-					InetAddress chatAddress = chatDatas.get(parameters.get(0)).getAdress();
-					if(chatAddress.equals(null)) {
-						System.out.println("you are not member of this project");
-					}
-					
-					
-					try {
-						connections.sendChatMsg(this.nickName + ": " + parameters.get(1), chatAddress);
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-					/*String addr = "230.1.1.1";
-					try {
-						InetAddress ia = InetAddress.getByName(addr);
-						chatDatas.put("nomeprogetto", new ChatData(ia));
-			
-						connections.sendChatMsg("ciao", addr);
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}*/
+					if (clientState.equals(UserState.ONLINE)) {
+
+						InetAddress chatAddress = projectIP.get(parameters.get(0));
+						if (chatAddress.equals(null)) {
+							System.out.println("you are not member of this project");
+						}
+
+						try {
+							connections.sendChatMsg(this.nickName + ": " + parameters.get(1), chatAddress);
+						} catch (IOException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+
+					} else
+						System.out.println("You need to be logged in before this request");
+
 					break;
+
+				case ("read_chat"):
+					if (clientState.equals(UserState.ONLINE)) {
+
+						
+						Iterator<String> i = chatData.getMessages(parameters.get(0));
+						if (!(i.hasNext()))
+							System.out.println("NO new message in this chat");
+
+						else
+							while (i.hasNext()) {
+								System.out.println(i.next());
+								i.remove();
+							}
+
+					} else
+						System.out.println("You need to be logged in before this request");
+					break;
+
+				case ("close"):
+					response = connections.sendRequest("logout");
+					clientState = UserState.OFFLINE;
+					stubS.unregisterForCallback(this);
+					this.chatData.interrupt();
+					done = true;
+					break;
+
 				case ("HELP"):
 					printHelp();
 					break;
@@ -382,14 +455,13 @@ public class Client implements ClientInterfaceRMI {
 				}
 
 				if (command.equals("logout")) {
-					done = true;
 					clientState = UserState.OFFLINE;
 					stubS.unregisterForCallback(this);
+					this.chatData.interrupt();
 				}
-				
 
 			} else {
-				System.out.println(" Error in request use HELP command for more info\n");
+				System.out.println("Error in request use HELP command for more info");
 
 			}
 
@@ -399,7 +471,7 @@ public class Client implements ClientInterfaceRMI {
 
 	public void printHelp() {
 
-		System.out.println("HERE IS A LIST OF ALLA OPERATION AVAILABLE ON WORTH:\n");
+		System.out.println("HERE IS A LIST OF ALLA OPERATION AVAILABLE ON WORTH:");
 		System.out.println("Operation are shown as:");
 		System.out.println("Command Name : [first parameter needed] ... [last parameter needed]");
 		System.out.println("* Brief description of what's the meaning of the command *");
@@ -464,22 +536,22 @@ public class Client implements ClientInterfaceRMI {
 
 	}
 
-	@Override
-	public void notifyUserState(String nickName, UserState state) throws RemoteException {
-		stateOfUsers.put(nickName, state);
-
-	}
+	
 
 	@Override
 	public void notifyNewChat(String projectName, InetAddress address) {
-		if(!(chatDatas.containsKey(projectName))) chatDatas.put(projectName, new ChatData(address));
-		
+		/*if (!(chatDatas.containsKey(projectName)))
+			chatDatas.put(projectName, new ChatData(address));*/
+		if(chatData.addChat(projectName, address))
+
 		System.out.println("You have joined the " + projectName + "'s chat!");
+
+	}
+
+	@Override
+	public void notifyUserState(String nikName, UserState state) throws RemoteException {
+		stateOfUsers.put(nickName, state);
 		
 	}
 
-	
-
 }
-
-

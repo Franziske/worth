@@ -1,11 +1,15 @@
 package server;
 
 import java.net.InetAddress;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
-import exceptions.*;
+import exceptions.DuplicateException;
+import exceptions.NotFoundException;
 
 public class Project {
 
@@ -23,14 +27,14 @@ public class Project {
 		// worth Controlla che il nome sia univoco
 		this.name = n;
 		this.creator = c;
-		this.members = new TreeSet<String>();
+		this.members = new TreeSet<>();
 		members.add(c.getnikName());
-		this.TODO = new ArrayList<Card>();
-		this.INPROGRESS = new ArrayList<Card>();
-		this.TOBEREVISED = new ArrayList<Card>();
-		this.DONE = new ArrayList<Card>();
+		this.TODO = new ArrayList<>();
+		this.INPROGRESS = new ArrayList<>();
+		this.TOBEREVISED = new ArrayList<>();
+		this.DONE = new ArrayList<>();
 		this.chatAddress = ca;
-		
+
 	}
 
 	// jackson
@@ -38,7 +42,7 @@ public class Project {
 
 		this.name = null;
 		this.creator = null;
-		this.members = new TreeSet<String>();
+		this.members = new TreeSet<>();
 
 		this.TODO = new ArrayList<>();
 		this.INPROGRESS = new ArrayList<>();
@@ -70,7 +74,7 @@ public class Project {
 	public List<Card> getDoneCards() {
 		return this.DONE;
 	}
-	
+
 	public InetAddress getChatAddress() {
 		return chatAddress;
 	}
@@ -78,7 +82,7 @@ public class Project {
 	@JsonIgnore
 	public List<Card> getAllCards() {
 
-		List<Card> all = new ArrayList<Card>(); // ?????
+		List<Card> all = new ArrayList<>(); // ?????
 		all.addAll(TODO);
 		all.addAll(INPROGRESS);
 		all.addAll(TOBEREVISED);
@@ -97,7 +101,7 @@ public class Project {
 	}
 
 	public List<String> getMembers() {
-		return new ArrayList<String>(this.members);
+		return new ArrayList<>(this.members);
 	}
 
 	public void addCard(String c) throws DuplicateException {
@@ -196,7 +200,5 @@ public class Project {
 		this.members.add(usr.getnikName());
 		return true;
 	}
-
-
 
 }

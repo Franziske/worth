@@ -9,9 +9,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.exc.StreamWriteException;
 import com.fasterxml.jackson.databind.DatabindException;
@@ -22,9 +19,6 @@ import exceptions.NotFoundException;
 
 public class Worth extends RemoteServer implements ServiceRMI {
 
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 1L;
 	private DataBase worthdb;
 	private ArrayList<Project> worthProjects;
@@ -33,11 +27,11 @@ public class Worth extends RemoteServer implements ServiceRMI {
 	private List<ClientInterfaceRMI> registeredForCB;
 
 	public Worth() throws IOException {
-		this.worthProjects = new ArrayList<Project>();
-		this.worthUsers = new ArrayList<User>();
+		this.worthProjects = new ArrayList<>();
+		this.worthUsers = new ArrayList<>();
 		this.worthdb = new DataBase();
-		this.stateOfUsers = new HashMap<String, UserState>();
-		this.registeredForCB = new ArrayList<ClientInterfaceRMI>();
+		this.stateOfUsers = new HashMap<>();
+		this.registeredForCB = new ArrayList<>();
 
 		// recupero dal database gli utenti già registrati e i progetti in corso
 		worthUsers.addAll(worthdb.getUsers());
@@ -51,61 +45,47 @@ public class Worth extends RemoteServer implements ServiceRMI {
 	// metodi ausiliari
 
 	private void checkString(String s) throws IllegalArgumentException {
-		if (s == null)
-			throw new IllegalArgumentException();
-		if (s == "")
+		if ((s == null) || (s == ""))
 			throw new IllegalArgumentException();
 	}
 
 	private void checkString(String s, int maxlenght) throws IllegalArgumentException {
-		if (s == null)
-			throw new IllegalArgumentException();
-		if (s == "")
-			throw new IllegalArgumentException();
-		if (s.length() < maxlenght)
+		if ((s == null) || (s == "") || (s.length() < maxlenght))
 			throw new IllegalArgumentException();
 	}
 
 	private Project getProject(String projectName) {
-		for (Project p : this.worthProjects)
+		for (Project project : this.worthProjects)
 
-			if (p.getName().equals(projectName)) {
-				return p;
+			if (project.getName().equals(projectName)) {
+				return project;
 			}
 		return null;
 	}
 
 	private User getUser(String usrName) {
-		for (User u : this.worthUsers)
+		for (User user : this.worthUsers)
 
-			if (u.getnikName().equals(usrName)) {
-				return u;
+			if (user.getnikName().equals(usrName)) {
+				return user;
 			}
 		return null;
 	}
 
-	private Card getCard(Project p, String cardName) {
-		for (Card c : p.getAllCards())
-
-			if (c.getTaskName().equals(cardName)) {
-				return c;
-			}
-		return null;
-	}
-	
 	private ClientInterfaceRMI getClientForCB(String usrName) throws RemoteException {
 		for (ClientInterfaceRMI c : this.registeredForCB) {
 
 			if (c.getnickName().equals(usrName)) {
 				return c;
 			}
-			
+
 		}
 		return null;
 	}
 
 	//////////////
 
+	@Override
 	public boolean register(String nik, String psswd) throws RemoteException {
 		try {
 			checkString(nik);
@@ -156,7 +136,7 @@ public class Worth extends RemoteServer implements ServiceRMI {
 
 			this.stateOfUsers.replace(nik, UserState.ONLINE);
 			sendNotification(nik, UserState.ONLINE);
-			
+
 			return " Successfully logged in";
 		}
 
@@ -183,7 +163,7 @@ public class Worth extends RemoteServer implements ServiceRMI {
 	}
 
 	public ArrayList<String> listUsers() {
-		ArrayList<String> aux = new ArrayList<String>();
+		ArrayList<String> aux = new ArrayList<>();
 
 		for (User u : worthUsers) {
 			aux.add(u.getnikName());
@@ -193,7 +173,7 @@ public class Worth extends RemoteServer implements ServiceRMI {
 
 	public List<String> listOnlineUsers() {
 
-		ArrayList<String> onlineUsers = new ArrayList<String>();
+		ArrayList<String> onlineUsers = new ArrayList<>();
 
 		for (var entry : stateOfUsers.entrySet()) {
 
@@ -214,7 +194,7 @@ public class Worth extends RemoteServer implements ServiceRMI {
 	}
 
 	public ArrayList<String> listProjects() {
-		ArrayList<String> aux = new ArrayList<String>();
+		ArrayList<String> aux = new ArrayList<>();
 
 		for (Project p : this.worthProjects) {
 			aux.add(p.getName());
@@ -223,7 +203,7 @@ public class Worth extends RemoteServer implements ServiceRMI {
 	}
 
 	public ArrayList<String> listMyProjects(String currentUsr) {
-		ArrayList<String> aux = new ArrayList<String>();
+		ArrayList<String> aux = new ArrayList<>();
 
 		for (Project p : this.worthProjects) {
 			if (p.getMembers().contains(currentUsr)) {
@@ -269,7 +249,7 @@ public class Worth extends RemoteServer implements ServiceRMI {
 			sendNewChatAddress(nik, projectName, chatAddress);
 		} catch (RemoteException e) {
 			return "Remote exception occurred, can't add " + nik + " to project " + projectName;
-		} //??????
+		} // ??????
 		this.worthdb.refreshProject(p);
 		this.worthdb.refreshUser(u);
 
@@ -374,26 +354,26 @@ public class Worth extends RemoteServer implements ServiceRMI {
 
 	public String moveCard(String currentUsr, String projectName, String cardName, CardState from, CardState to)
 			throws StreamWriteException, DatabindException, IOException {
-		Project p = this.getProject(projectName);
+		Project project = this.getProject(projectName);
 
-		if ((p == null))
+		if ((project == null))
 			return " Project" + projectName + "doesn't exists";
-		if (!(p.getMembers().contains(currentUsr)))
+		if (!(project.getMembers().contains(currentUsr)))
 			return "User " + currentUsr + "is not member of project " + projectName;
 
 		try {
-			Card c = p.getCard(cardName);
-			if (!(c.getCurrentState().equals(from)))
-				return "Can't move card " + c.getTaskName() + ": is not in " + from.name() + " state";
+			Card card = project.getCard(cardName);
+			if (!(card.getCurrentState().equals(from)))
+				return "Can't move card " + card.getTaskName() + ": is not in " + from.name() + " state";
 
-			if (c.changeState(to)) {
+			if (card.changeState(to)) {
 
-				this.worthdb.uploadCardState(p, c);
-				this.worthdb.refreshProject(p);
+				this.worthdb.uploadCardState(project, card);
+				this.worthdb.refreshProject(project);
 
-				return "Card" + c.getTaskName() + "correctly moved to " + to.name();
+				return "Card" + card.getTaskName() + "correctly moved to " + to.name();
 			}
-			return "Card" + c.getTaskName() + "can't be moved from " + from.name() + " to " + to.name();
+			return "Card" + card.getTaskName() + "can't be moved from " + from.name() + " to " + to.name();
 
 		} catch (NotFoundException e) {
 			return "Card " + cardName + "doesn't exists in project " + projectName;
@@ -448,7 +428,7 @@ public class Worth extends RemoteServer implements ServiceRMI {
 	}
 
 	@Override
-	public void sendNotification(String user, UserState us) throws RemoteException {
+	public void sendNotification(String user,UserState us) throws RemoteException {
 		System.out.println("Callbacks---");
 		Iterator<ClientInterfaceRMI> i = registeredForCB.iterator();
 		while (i.hasNext()) {
@@ -458,25 +438,14 @@ public class Worth extends RemoteServer implements ServiceRMI {
 		System.out.println("Callbacks done");
 
 	}
-	
-	/*public static String getNextIPV4Address(String ip) {
-	    String[] nums = ip.split("\\.");
-	    int i = (Integer.parseInt(nums[0]) << 24 | Integer.parseInt(nums[2]) << 8
-	          |  Integer.parseInt(nums[1]) << 16 | Integer.parseInt(nums[3])) + 1;
-
-	    // If you wish to skip over .255 addresses.
-	    if ((byte) i == -1) i++;
-
-	    return String.format("%d.%d.%d.%d", i >>> 24 & 0xFF, i >> 16 & 0xFF,
-	                                        i >>   8 & 0xFF, i >>  0 & 0xFF);*/
-	
 
 	@Override
 	public void sendNewChatAddress(String dest, String projectName, InetAddress address) throws RemoteException {
-		
+
 		ClientInterfaceRMI client = getClientForCB(dest);
-		if(!(client == null)) client.notifyNewChat(projectName, address);
-		
+		if (!(client == null))
+			client.notifyNewChat(projectName, address);
+
 	}
 
 }
